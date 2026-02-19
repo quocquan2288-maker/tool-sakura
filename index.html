@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TOOL FREE</title>
+    <style>
+        :root { 
+            --neon: #00ff00; 
+            --sakura: #ffb6c1; /* Màu hồng nhạt hoa đào */
+            --sakura-dark: #ff8fab; /* Màu hồng đậm hơn */
+            --bg: rgba(0, 0, 0, 0.95); 
+        }
+        body { 
+            background: #000; 
+            margin: 0; 
+            font-family: -apple-system, sans-serif; 
+            overflow: hidden; 
+            color: #fff; 
+        }
+        #game-view { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            border: none; 
+            z-index: 1; 
+        }
+        
+        /* ============ HOA ĐÀO RƠI ============ */
+        #sakura-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Không thể click vào hoa */
+            z-index: 2;
+            overflow: hidden;
+        }
+        
+        .sakura-petal {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, var(--sakura), var(--sakura-dark));
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            opacity: 0.7;
+            filter: drop-shadow(0 0 3px rgba(255, 182, 193, 0.5));
+            pointer-events: none; /* Đảm bảo không thể click */
+            user-select: none;
+        }
+        
+        .sakura-petal::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 4px;
+            height: 4px;
+            background: #ff69b4;
+            border-radius: 50%;
+        }
+        
+        .sakura-petal.small {
+            width: 12px;
+            height: 12px;
+            opacity: 0.5;
+        }
+        
+        .sakura-petal.medium {
+            width: 16px;
+            height: 16px;
+            opacity: 0.6;
+        }
+        
+        .sakura-petal.large {
+            width: 24px;
+            height: 24px;
+            opacity: 0.8;
+        }
+        /* ===================================== */
+        
+        #toggle-tool {
+            position: absolute; 
+            top: 10px; 
+            right: 10px; 
+            width: 38px; 
+            height: 38px;
+            background: var(--sakura); 
+            color: #000; 
+            border-radius: 50%;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            font-size: 18px; 
+            z-index: 1001; 
+            cursor: pointer; 
+            box-shadow: 0 0 10px var(--sakura);
+        }
+
+        .tool-panel { 
+            position: absolute; 
+            bottom: 5px; 
+            left: 50%; 
+            transform: translateX(-50%);
+            width: 98%; 
+            background: var(--bg); 
+            border: 1.5px solid var(--sakura);
+            border-radius: 12px; 
+            padding: 8px; 
+            box-sizing: border-box; 
+            z-index: 1000;
+        }
+        .hidden { display: none; }
+
+        /* Hàng nhập liệu Matrix: Đảm bảo không bao giờ tràn */
+        .matrix-row { display: flex; align-items: center; gap: 4px; width: 100%; }
+        
+        #sid { 
+            flex: 1; 
+            min-width: 60px; 
+            background: #111; 
+            border: 1px solid #444; 
+            color: var(--sakura); 
+            height: 32px; 
+            border-radius: 4px; 
+            padding: 0 4px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            outline: none;
+        }
+
+        .v-sq { 
+            width: 32px !important; 
+            height: 32px !important; 
+            background: #222; 
+            border: 1px solid #555; 
+            color: #fff;
+            border-radius: 4px; 
+            text-align: center; 
+            font-weight: bold; 
+            font-size: 14px;
+            outline: none; 
+            flex-shrink: 0;
+        }
+        .v-sq:focus { 
+            border-color: var(--sakura); 
+            background: #000; 
+            box-shadow: 0 0 5px var(--sakura);
+        }
+
+        .btn-calc { 
+            background: var(--sakura); 
+            color: #000; 
+            border: none; 
+            height: 32px; 
+            padding: 0 10px; 
+            border-radius: 4px; 
+            font-weight: 900; 
+            font-size: 11px; 
+            cursor: pointer; 
+            flex-shrink: 0;
+            transition: all 0.3s;
+        }
+        
+        .btn-calc:hover {
+            background: var(--sakura-dark);
+            box-shadow: 0 0 10px var(--sakura);
+        }
+
+        .display-area { 
+            text-align: center; 
+            margin-top: 6px; 
+            border-top: 1px solid #222; 
+            padding-top: 6px; 
+        }
+        
+        #result { 
+            font-size: 20px; 
+            font-weight: 900; 
+            line-height: 1.2; 
+            text-shadow: 0 0 5px currentColor;
+        }
+        
+        .dice-prev { 
+            display: flex; 
+            justify-content: center; 
+            gap: 5px; 
+            margin-top: 4px; 
+        }
+        
+        .dot-val { 
+            width: 22px; 
+            height: 22px; 
+            background: var(--sakura); 
+            color: #000; 
+            border-radius: 3px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: 900; 
+            font-size: 13px; 
+        }
+        
+        /* ============ PHẦN Ô NHỎ MỚI ============ */
+        .small-big-panel {
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(30, 20, 30, 0.9);
+            border-radius: 6px;
+            border: 1px solid var(--sakura);
+        }
+        
+        .sb-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .sb-toggle span {
+            font-size: 12px;
+            color: var(--sakura);
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        
+        #toggle-sb {
+            width: 40px;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+            border: 1px solid var(--sakura);
+        }
+        
+        #toggle-sb::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: #888;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+        
+        #toggle-sb.active {
+            background: rgba(255, 182, 193, 0.3);
+        }
+        
+        #toggle-sb.active::after {
+            left: 22px;
+            background: var(--sakura);
+        }
+        
+        .sb-prediction {
+            display: none;
+            text-align: center;
+            padding: 6px;
+            background: rgba(30, 10, 20, 0.5);
+            border-radius: 4px;
+            margin-top: 6px;
+            border: 1px solid rgba(255, 182, 193, 0.3);
+        }
+        
+        .sb-prediction.active {
+            display: block;
+        }
+        
+        .sb-result {
+            font-size: 16px;
+            font-weight: 900;
+            color: var(--sakura);
+            margin-bottom: 4px;
+            text-shadow: 0 0 5px var(--sakura);
+        }
+        
+        .sb-numbers {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .sb-num {
+            width: 24px;
+            height: 24px;
+            background: #222;
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .sb-num.small {
+            background: rgba(106, 176, 255, 0.2);
+            color: #6ab0ff;
+            border: 1px solid #6ab0ff;
+        }
+        
+        .sb-num.big {
+            background: rgba(255, 106, 106, 0.2);
+            color: #ff6a6a;
+            border: 1px solid #ff6a6a;
+        }
+        
+        .sb-num.selected {
+            box-shadow: 0 0 8px currentColor;
+            transform: scale(1.1);
+        }
+        
+        .sys-log { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 8px; 
+            color: #555; 
+            margin-top: 4px; 
+            text-transform: uppercase; 
+        }
+        
+        b { 
+            color: var(--sakura); 
+            text-shadow: 0 0 3px var(--sakura);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Container cho hoa đào rơi -->
+    <div id="sakura-container"></div>
+    
+    <div id="toggle-tool" onclick="toggle()">🌸</div>
+    <iframe id="game-view" src="https://lc79b.bet/"></iframe>
+
+    <div class="tool-panel" id="panel">
+        <div class="matrix-row">
+            <input type="number" id="sid" placeholder="Phiên #">
+            <input type="number" id="v1" class="v-sq" placeholder="V1" oninput="limit(this)">
+            <input type="number" id="v2" class="v-sq" placeholder="V2" oninput="limit(this)">
+            <input type="number" id="v3" class="v-sq" placeholder="V3" oninput="limit(this)">
+            <button class="btn-calc" onclick="runMatrix()">PHÂN TÍCH</button>
+        </div>
+        
+        <!-- Phần dự đoán ô nhỏ -->
+        <div class="small-big-panel">
+            <div class="sb-toggle">
+                <span>DỰ ĐOÁN Ô NHỎ</span>
+                <div id="toggle-sb" onclick="toggleSmallBig()"></div>
+            </div>
+            
+            <div class="sb-prediction" id="sb-prediction">
+                <div class="sb-result" id="sb-result">ĐANG TÍNH TOÁN...</div>
+                <div class="sb-numbers" id="sb-numbers">
+                    <!-- Các số sẽ được thêm bằng JavaScript -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="display-area">
+            <div id="result" style="color: #444;">DỮ LIỆU TRỐNG</div>
+            
+            <div class="dice-prev" id="dice-ui" style="display: none;">
+                <div class="dot-val" id="r1"></div>
+                <div class="dot-val" id="r2"></div>
+                <div class="dot-val" id="r3"></div>
+            </div>
+
+            <div class="sys-log">
+                <span>VER: <b>1.0</b></span>
+                <span>SIGNAL: <b id="signal">STABLE</b></span>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // ============ HOA ĐÀO RƠI ============
+    function createSakuraPetal() {
+        const container = document.getElementById('sakura-container');
+        const petal = document.createElement('div');
+        
+        // Random kích thước
+        const sizes = ['small', 'medium', 'large'];
+        const size = sizes[Math.floor(Math.random() * sizes.length)];
+        
+        petal.className = `sakura-petal ${size}`;
+        petal.style.pointerEvents = 'none'; // Không thể tương tác
+        petal.style.userSelect = 'none';
+        
+        // Vị trí ngẫu nhiên trên màn hình
+        const startX = Math.random() * 100;
+        const endX = startX + (Math.random() * 20 - 10);
+        
+        // Thời gian rơi
+        const duration = 10 + Math.random() * 20;
+        const delay = Math.random() * 5;
+        
+        // Áp dụng hiệu ứng rơi
+        petal.style.left = `${startX}vw`;
+        petal.style.top = '-30px';
+        petal.style.opacity = '0';
+        
+        // Hiệu ứng rơi với keyframes
+        const animation = petal.animate([
+            { 
+                transform: 'translateY(0) rotate(0deg)', 
+                opacity: 0,
+                left: `${startX}vw`
+            },
+            { 
+                transform: 'translateY(20vh) rotate(90deg)', 
+                opacity: 0.7,
+                left: `${endX}vw`
+            },
+            { 
+                transform: 'translateY(40vh) rotate(180deg)', 
+                opacity: 0.5,
+                left: `${startX}vw`
+            },
+            { 
+                transform: 'translateY(80vh) rotate(270deg)', 
+                opacity: 0.3,
+                left: `${endX}vw`
+            },
+            { 
+                transform: 'translateY(120vh) rotate(360deg)', 
+                opacity: 0,
+                left: `${startX}vw`
+            }
+        ], {
+            duration: duration * 1000,
+            delay: delay * 1000,
+            easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
+        });
+        
+        container.appendChild(petal);
+        
+        // Xóa cánh hoa sau khi rơi xong
+        animation.onfinish = () => {
+            petal.remove();
+        };
+    }
+    
+    // Tạo nhiều cánh hoa
+    function startSakuraFall() {
+        // Tạo cánh hoa ban đầu
+        for(let i = 0; i < 15; i++) {
+            setTimeout(() => createSakuraPetal(), i * 300);
+        }
+        
+        // Tiếp tục tạo hoa mới
+        setInterval(() => {
+            if(Math.random() > 0.3) { // 70% chance tạo hoa mới
+                createSakuraPetal();
+            }
+        }, 500);
+    }
+    // =====================================
+    
+    function toggle() { 
+        document.getElementById('panel').classList.toggle('hidden'); 
+    }
+    
+    function limit(element) { 
+        if(element.value.length > 1) element.value = element.value.slice(0,1); 
+    }
+    
+    // ============ PHẦN Ô NHỎ ============
+    let smallBigEnabled = false;
+    let lastPrediction = null;
+    
+    function toggleSmallBig() {
+        const toggle = document.getElementById('toggle-sb');
+        const prediction = document.getElementById('sb-prediction');
+        
+        smallBigEnabled = !smallBigEnabled;
+        
+        if(smallBigEnabled) {
+            toggle.classList.add('active');
+            prediction.classList.add('active');
+            calculateSmallBig(); // Tính ngay khi bật
+        } else {
+            toggle.classList.remove('active');
+            prediction.classList.remove('active');
+        }
+    }
+    
+    function calculateSmallBig() {
+        if(!smallBigEnabled) return;
+        
+        const v1 = parseInt(document.getElementById('v1').value);
+        const v2 = parseInt(document.getElementById('v2').value);
+        const v3 = parseInt(document.getElementById('v3').value);
+        
+        if(isNaN(v1) || isNaN(v2) || isNaN(v3)) {
+            document.getElementById('sb-result').innerText = "NHẬP ĐỦ 3 SỐ";
+            document.getElementById('sb-result').style.color = "#ffaa00";
+            return;
+        }
+        
+        const sum = v1 + v2 + v3;
+        const timestamp = new Date().getTime();
+        
+        // Thuật toán dự đoán ô nhỏ với màu hồng
+        const seed = (sum * timestamp) % 100;
+        
+        let prediction, color, numbers;
+        
+        if(seed < 50) {
+            // Dự đoán Ô NHỎ (4-10 điểm)
+            prediction = "Ô NHỎ (4-10)";
+            color = "#6ab0ff";
+            numbers = generateSmallNumbers(sum);
+        } else {
+            // Dự đoán Ô LỚN (11-17 điểm)
+            prediction = "Ô LỚN (11-17)";
+            color = "#ff6a6a";
+            numbers = generateBigNumbers(sum);
+        }
+        
+        lastPrediction = { prediction, color, numbers };
+        updateSmallBigDisplay();
+    }
+    
+    function generateSmallNumbers(baseSum) {
+        const smallRange = [4, 5, 6, 7, 8, 9, 10];
+        let numbers = [];
+        
+        if(baseSum >= 4 && baseSum <= 10) {
+            numbers.push(baseSum);
+        } else {
+            numbers.push(smallRange[Math.abs(baseSum) % smallRange.length]);
+        }
+        
+        while(numbers.length < 4) {
+            const num = smallRange[Math.floor(Math.random() * smallRange.length)];
+            if(!numbers.includes(num)) {
+                numbers.push(num);
+            }
+        }
+        
+        return numbers.sort((a, b) => a - b);
+    }
+    
+    function generateBigNumbers(baseSum) {
+        const bigRange = [11, 12, 13, 14, 15, 16, 17];
+        let numbers = [];
+        
+        if(baseSum >= 11 && baseSum <= 17) {
+            numbers.push(baseSum);
+        } else {
+            numbers.push(bigRange[Math.abs(baseSum) % bigRange.length]);
+        }
+        
+        while(numbers.length < 4) {
+            const num = bigRange[Math.floor(Math.random() * bigRange.length)];
+            if(!numbers.includes(num)) {
+                numbers.push(num);
+            }
+        }
+        
+        return numbers.sort((a, b) => a - b);
+    }
+    
+    function updateSmallBigDisplay() {
+        if(!lastPrediction) return;
+        
+        const { prediction, color, numbers } = lastPrediction;
+        const resultEl = document.getElementById('sb-result');
+        const numbersEl = document.getElementById('sb-numbers');
+        
+        resultEl.innerText = prediction;
+        resultEl.style.color = color;
+        
+        numbersEl.innerHTML = '';
+        
+        numbers.forEach(num => {
+            const numEl = document.createElement('div');
+            numEl.className = `sb-num ${num <= 10 ? 'small' : 'big'}`;
+            numEl.innerText = num;
+            
+            if(num === numbers[0]) {
+                numEl.classList.add('selected');
+            }
+            
+            numbersEl.appendChild(numEl);
+        });
+    }
+    
+    // Tự động tính lại khi thay đổi số
+    document.getElementById('v1').addEventListener('input', calculateSmallBig);
+    document.getElementById('v2').addEventListener('input', calculateSmallBig);
+    document.getElementById('v3').addEventListener('input', calculateSmallBig);
+    
+    function runMatrix() {
+        const sid = document.getElementById('sid').value;
+        const v1 = parseInt(document.getElementById('v1').value);
+        const v2 = parseInt(document.getElementById('v2').value);
+        const v3 = parseInt(document.getElementById('v3').value);
+
+        if(!sid || isNaN(v1) || isNaN(v2) || isNaN(v3)) return;
+
+        const res = document.getElementById('result');
+        const ui = document.getElementById('dice-ui');
+        res.innerText = "MATRIX SCANNING...";
+        res.style.color = "#ffb6c1";
+
+        setTimeout(() => {
+            const sum = v1 + v2 + v3;
+            const last3 = parseInt(sid.slice(-3));
+            
+            // Thuật toán với màu hồng
+            const formula = ((last3 + sum) * v1) % 100;
+            
+            let side = formula > 45 ? "VÀO: TÀI" : "VÀO: XỈU";
+            let color = formula > 45 ? "#ff6a6a" : "#6ab0ff";
+            let d = formula > 45 ? [6, 4, 2] : [1, 3, 2];
+
+            res.innerText = side;
+            res.style.color = color;
+            res.style.textShadow = `0 0 10px ${color}`;
+            
+            document.getElementById('r1').innerText = d[0];
+            document.getElementById('r2').innerText = d[1];
+            document.getElementById('r3').innerText = d[2];
+            document.getElementById('signal').innerText = "LOCKED";
+            ui.style.display = "flex";
+            
+            // Tạo thêm hoa đào khi có kết quả
+            for(let i = 0; i < 5; i++) {
+                setTimeout(() => createSakuraPetal(), i * 200);
+            }
+            
+            // Cập nhật dự đoán ô nhỏ nếu đang bật
+            if(smallBigEnabled) {
+                calculateSmallBig();
+            }
+        }, 800);
+    }
+    
+    // Khởi tạo
+    document.addEventListener('DOMContentLoaded', function() {
+        // Bắt đầu hiệu ứng hoa đào rơi
+        startSakuraFall();
+        
+        // Đảm bảo tất cả hoa đào không thể click
+        document.getElementById('sakura-container').addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+        });
+        
+        // Vô hiệu hóa tương tác với iframe game
+        document.getElementById('game-view').style.pointerEvents = 'auto';
+    });
+</script>
+
+</body>
+</html>
